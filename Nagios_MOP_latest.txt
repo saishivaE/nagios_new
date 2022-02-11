@@ -1,0 +1,296 @@
+﻿
+##Copy nagios_setup_files to local directory
+
+mkdir -p /opt/cdp_es/staging/nagios
+
+cd /opt/cdp_es/staging/nagios
+
+[root@10 nagios]# pwd
+/opt/cdp_es/staging/nagios
+
+[root@10 nagios]# ls -l
+total 4
+drwxr-xr-x. 5 root root 4096 May 30 05:02 nagios_setup_files
+[root@10 nagios]# ls -l nagios_setup_files
+total 13924
+drwxr-xr-x. 3 root root     4096 May 30 05:02 etc
+-rw-r--r--. 1 root root 11088206 May 15 04:54 nagios-4.2.4.tar.gz
+-rw-r--r--. 1 root root  2728818 May 15 04:54 nagios-plugins-2.2.1.tar.gz
+drwxr-xr-x. 3 root root     4096 May 30 02:09 nagios_server_config_files
+-rw-r--r--. 1 root root   419695 May 15 04:54 nrpe-2.15.tar.gz
+drwxr-xr-x. 2 root root     4096 May 30 02:10 product_plugins
+
+
+https://www.tecmint.com/install-nagios-in-linux/
+
+
+Nagios Server Configuration
+---------------------------
+
+
+sudo yum install -y httpd httpd-tools php gcc glibc glibc-common gd gd-devel make net-snmp openssl-devel xinetd unzip
+
+sudo useradd nagios
+sudo groupadd nagcmd
+
+sudo usermod -G nagcmd nagios
+sudo usermod -G nagcmd apache
+
+
+cd /opt/staging/nagios/
+
+tar -xvf nagios-4.2.4.tar.gz 
+
+cd /opt/staging/nagios/nagios-4.2.4
+
+./configure --with-command-group=nagcmd 
+
+
+make all 
+make install 
+make install-commandmode 
+make install-init 
+make install-config 
+make install-webconf
+
+
+cd /usr/local/nagios/etc
+mv nrpe.cfg nrpe.cfg_org
+mv nagios.cfg nagios.cfg_org
+cp /opt/cdp_es/nagios/Nagios_Setup_files/nagios_server_config_files/nagios.cfg .
+cp -r /opt/cdp_es/nagios/Nagios_Setup_files/nagios_server_config_files/objects/*.cfg .
+
+cd objects
+#Update cdp_hosts.cfg with required details
+
+htpasswd -s -c /usr/local/nagios/etc/htpasswd.users nagiosadmin  
+
+chown -R nagios:nagcmd /usr/local/nagios/
+chmod -R 755 /usr/local/nagios/
+
+##To check the Nagios version
+ /usr/local/nagios/bin/nagios –help
+
+#Update 8090 port in httpd.conf
+[root@2L3ESEMS1 conf]# cat /etc/httpd/conf/httpd.conf | grep Listen
+Listen 8090
+
+
+[root@2L3ESEMS2 nagios-4.2.4]# cat /etc/httpd/conf/httpd.conf | grep -i include
+Include conf.d/*.conf
+
+
+[root@ithhwrio1app06 conf.d]# pwd
+/etc/httpd/conf.d
+
+[root@2L3ESEMS1 conf.d]# cat /etc/httpd/conf.d/nagios.conf | grep -i virtual
+<VirtualHost *:8090>
+</VirtualHost>
+
+
+systemctl enable nagios
+systemctl enable httpd
+
+systemctl start nagios
+systemctl start httpd
+
+[root@ithhwrio1app06]# netstat -ntpl | grep 8090
+tcp6       0      0.0.0.0:8090               [::]:*                  LISTEN      23302/nagios
+
+http://10.119.250.29:909/nagios/
+
+nagiosadmin/Passw0rd
+
+
+#Sample Configuration files
+---------------------------
+
+
+[root@ithhwrio1app06 objects]# cat /usr/local/nagios/etc/objects/cdp_hosts.cfg
+#List of cdp Hosts. you can add your hosts by same methods
+define host {
+        use                     linux-box
+        host_name               cdp_node1
+        alias                   cdp_node1
+        address                 10.119.250.24
+        notes                   9999
+        notes_url               8080
+        hostgroups              cdp_servers
+        }
+define host {
+        use                     linux-box
+        host_name               cdp_node2
+        alias                   cdp_node2
+        address                 10.119.250.25
+        notes                   9999
+        notes_url               8080
+        hostgroups              cdp_servers
+        }
+
+
+
+[root@ithhwrio1app06 etc]# cat /usr/local/nagios/etc/nagios.cfg | grep cfg
+
+cfg_file=/usr/local/nagios/etc/objects/commands.cfg
+cfg_file=/usr/local/nagios/etc/objects/contacts.cfg
+cfg_file=/usr/local/nagios/etc/objects/timeperiods.cfg
+cfg_file=/usr/local/nagios/etc/objects/templates.cfg
+
+cfg_file=/usr/local/nagios/etc/objects/cdp_hosts.cfg
+cfg_file=/usr/local/nagios/etc/objects/cdp_services.cfg
+
+
+[root@ithhwrio1app06 etc]# cat /usr/local/nagios/etc/resource.cfg
+
+
+# Sets $USER1$ to be the path to the plugins
+$USER1$=/usr/local/nagios/libexec
+
+# Sets $USER2$ to be the path to event handlers
+#$USER2$=/usr/local/nagios/libexec/eventhandlers
+
+# Store some usernames and passwords (hidden from the CGIs)
+#mdm.management.username and password which we defined in mdm.cfg
+$USER3$=zabbix
+$USER4$=zabbix_1
+
+#SNMP Manage IP and Port
+$USER5$=127.0.0.1:162
+#$USER6$=
+
+#Oracle dba privilege User Name & Password
+$USER7$=MDM
+$USER8$=Pr!Ma3r4$
+
+$USER9$=mdm_jenkins
+$USER10$=mdm_jenkins
+
+#CDP web port login username/password
+$USER11$=superadmin
+$USER12$=superadmin
+
+=========================================================
+
+Nagios Client Configuration
+----------------------------
+
+yum install -y gcc glibc glibc-common gd gd-devel make net-snmp openssl-devel xinetd 
+
+sudo useradd nagios
+sudo groupadd nagcmd
+
+passwd nagios 
+	nagios123
+	
+sudo usermod -G nagcmd nagios
+sudo usermod -G nagcmd apache
+
+
+ cd /opt/staging/nagios
+  
+ tar -xvf nagios-plugins-2.2.1.tar.gz
+
+ cd /opt/staging/nagios/nagios-plugins-2.2.1
+ 
+./configure --with-nagios-user=nagios --with-nagios-group=nagcmd --with-openssl 
+  
+make  
+make install 
+   
+ 
+ cd /opt/staging/nagios
+ 
+ tar -xvf nrpe-2.15.tar.gz
+ 
+ cd /opt/staging/nagios/nrpe-2.15
+ 
+ ./configure --enable-command-args --with-nagios-user=nagios --with-nagios-group=nagcmd --enable-ssl --with-ssl=/usr/bin/openssl --with-ssl-lib=/usr/lib64  
+	
+make all 
+make install 
+make install-xinetd 
+make install-daemon-config 
+	
+
+sudo vi /etc/services  
+
+nrpe            5666/tcp                 NRPE 
+
+cd /usr/local/nagios/etc/
+cp /opt/cdp_es/nagios/Nagios_Setup_files/nagios_server_config_files/nrpe.cfg .
+	
+#Update Nagios server hosts details in nrpe and hosts.allow files like as below
+
+cat /etc/xinetd.d/nrpe | grep only_from
+        only_from       = 127.0.0.1 10.80.83.220 10.80.83.221
+
+
+cat /etc/hosts.allow | grep nrpe
+nrpe: 127.0.0.1, 10.80.83.220, 10.80.83.221
+
+
+chown -R nagios:nagcmd /usr/local/nagios/
+chown -R nagios:nagcmd /etc/xinetd.d/nrpe 
+	
+systemctl enable xinetd
+systemctl start xinetd
+
+[root@ithhwrio1app06 nrpe-2.15]# netstat -ap | grep nrpe
+tcp6       0      0 [::]:nrpe               [::]:*                  LISTEN      23302/xinetd
+[root@ithhwrio1app06 nrpe-2.15]# netstat -anp | grep 5666
+tcp6       0      0 :::5666                 :::*                    LISTEN      23302/xinetd
+
+
+
+ Product plugin installation (only on Client machines)
+ ---------------------------
+
+cd /usr/local/nagios/libexec/
+cp -r /opt/cdp_es/nagios/Nagios_Setup_files/product_plugins/* . 
+ls -l /usr/local/nagios/libexec/
+ 
+unzip check_jmx.jar 
+unzip jboss-client.jar 
+unzip nagios-monitoring.jar 
+
+chown -R nagios:nagcmd /usr/local/nagios/libexec/
+chmod -R 755 /usr/local/nagios/libexec/
+
+systemctl restart xinetd
+
+
+CDP application node
+---------------------
+cd /opt/mdm/jboss/bin
+
+[root@2L3ESAP1 bin]# ./add-user.sh
+
+What type of user do you wish to add?
+ a) Management User (mgmt-users.properties)
+ b) Application User (application-users.properties)
+(a): a
+
+Enter the details of the new user to add.
+Using realm 'ManagementRealm' as discovered from the existing property files.
+Username : zabbix
+Password requirements are listed below. To modify these restrictions edit the add-user.properties configuration file.
+ - The password must not be one of the following restricted values {root, admin, administrator}
+ - The password must contain at least 8 characters, 1 alphabetic character(s), 1 digit(s), 1 non-alphanumeric symbol(s)
+ - The password must be different from the username
+Password :                   =======> Password is "zabbix_1"
+Re-enter Password :
+What groups do you want this user to belong to? (Please enter a comma separated list, or leave blank for none)[  ]:
+About to add user 'zabbix' for realm 'ManagementRealm'
+Is this correct yes/no? yes
+Added user 'zabbix' to file '/opt/app/udm/jboss/standalone/configuration/mgmt-users.properties'
+Added user 'zabbix' to file '/opt/app/udm/jboss/domain/configuration/mgmt-users.properties'
+Added user 'zabbix' with groups  to file '/opt/app/udm/jboss/standalone/configuration/mgmt-groups.properties'
+Added user 'zabbix' with groups  to file '/opt/app/udm/jboss/domain/configuration/mgmt-groups.properties'
+Is this new user going to be used for one AS process to connect to another AS process?
+e.g. for a slave host controller connecting to the master or for a Remoting connection for server to server EJB calls.
+yes/no? yes
+To represent the user add the following to the server-identities definition <secret value="emFiYml4XzE=" />
+
+
+cat /opt/mdm/jboss/domain/configuration/mgmt-users.properties | grep zabbix
+zabbix=42709d5a61b2ca3a5c3e1b34998823b1
